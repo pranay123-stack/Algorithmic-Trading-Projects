@@ -1,0 +1,119 @@
+{
+  "description": "ICT Strategy Parameters - Edit this file to customize strategy behavior",
+  "version": "1.0",
+  "last_updated": "2025-01-05",
+
+  "comment_trading_config": "Basic trading configuration",
+  "trading": {
+    "symbol": "ETH/USDT",
+    "timeframe": "15m",
+    "leverage": 5.0,
+    "initial_capital": 10000,
+    "exchange": "binance"
+  },
+
+  "comment_ict_indicators": "ICT indicator parameters - tune these for optimization",
+  "ict_indicators": {
+    "fvg": {
+      "min_gap_size": 0.0005,
+      "lookback": 40,
+      "description": "Fair Value Gap detection. Smaller gap = more signals, larger gap = higher quality"
+    },
+    "order_blocks": {
+      "swing_length": 5,
+      "min_volume_percentile": 40,
+      "description": "Order Block detection. Higher swing/volume = fewer but stronger signals"
+    },
+    "liquidity_sweeps": {
+      "lookback": 15,
+      "sweep_threshold": 0.0005,
+      "description": "Liquidity sweep detection. Smaller threshold = more sensitive"
+    },
+    "bias": {
+      "ema_period": 50,
+      "description": "Daily bias calculation. EMA period for trend detection"
+    },
+    "atr": {
+      "period": 14,
+      "min_atr_pct": 0.003,
+      "description": "ATR volatility filter. Min 0.3% ATR required to trade"
+    }
+  },
+
+  "comment_strategy": "Strategy execution parameters",
+  "strategy": {
+    "risk_per_trade": 0.02,
+    "rr_ratio": 2.0,
+    "max_position_size_pct": 0.20,
+    "max_risk_pct": 0.03,
+    "stop_lookback": 30,
+    "max_holding_bars": 80,
+    "description": "2% risk per trade, 2:1 reward:risk, structure-based stops"
+  },
+
+  "comment_backtest": "Backtesting parameters",
+  "backtest": {
+    "commission_rate": 0.0004,
+    "slippage_pct": 0.0005,
+    "description": "0.04% commission (Binance futures), 0.05% slippage"
+  },
+
+  "comment_presets": "Pre-configured parameter sets for different strategies",
+  "presets": {
+    "default": {
+      "description": "Best forward test result (ETH/USDT 15m 5x)",
+      "fvg_gap": 0.0005,
+      "fvg_lookback": 40,
+      "ob_swing": 5,
+      "ob_volume": 40,
+      "sweep_lookback": 15,
+      "sweep_threshold": 0.0005
+    },
+    "conservative": {
+      "description": "Fewer signals, higher quality (larger gaps, stronger OBs)",
+      "fvg_gap": 0.0010,
+      "fvg_lookback": 50,
+      "ob_swing": 7,
+      "ob_volume": 60,
+      "sweep_lookback": 20,
+      "sweep_threshold": 0.0010
+    },
+    "aggressive": {
+      "description": "More signals, lower quality (smaller gaps, weaker OBs)",
+      "fvg_gap": 0.0003,
+      "fvg_lookback": 30,
+      "ob_swing": 3,
+      "ob_volume": 30,
+      "sweep_lookback": 10,
+      "sweep_threshold": 0.0003
+    },
+    "scalping": {
+      "description": "Very aggressive, for 5m timeframe",
+      "fvg_gap": 0.0002,
+      "fvg_lookback": 20,
+      "ob_swing": 3,
+      "ob_volume": 25,
+      "sweep_lookback": 8,
+      "sweep_threshold": 0.0002
+    },
+    "swing": {
+      "description": "Less frequent, for 4h/1d timeframe",
+      "fvg_gap": 0.0015,
+      "fvg_lookback": 60,
+      "ob_swing": 10,
+      "ob_volume": 70,
+      "sweep_lookback": 25,
+      "sweep_threshold": 0.0015
+    }
+  },
+
+  "comment_optimization": "Parameter ranges for optimization",
+  "optimization_ranges": {
+    "fvg_gap": [0.0003, 0.0005, 0.0007, 0.0010],
+    "fvg_lookback": [30, 40, 50],
+    "ob_swing": [3, 5, 7],
+    "ob_volume": [30, 40, 50, 60],
+    "sweep_lookback": [10, 15, 20],
+    "sweep_threshold": [0.0003, 0.0005, 0.0007, 0.0010]
+  }
+}

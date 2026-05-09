@@ -1,0 +1,40 @@
+# Secrets and credentials
+**/key_file.py
+**/dontshare.py
+**/dontshare_config.py
+**/xconfig.py
+.env
+.env.local
+
+# Strategy config files with API keys (use config_ex.py as template)
+crypto_strategies/turtle_trending_algo/config.py
+crypto_strategies/correlation_algo/config.py
+crypto_strategies/consolidation_pop_algo/config.py
+crypto_strategies/nadaraya_watson_algo/config.py
+crypto_strategies/market_maker_bot/xconfig.py
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Runtime data
+trading_data/
+*.log
+data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# OS
+Thumbs.db

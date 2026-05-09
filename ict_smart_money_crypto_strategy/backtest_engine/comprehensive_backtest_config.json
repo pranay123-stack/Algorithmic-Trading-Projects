@@ -1,0 +1,61 @@
+{
+  "description": "Configuration for comprehensive backtest (final_complete_backtest.py)",
+  "version": "1.0",
+  "last_updated": "2025-10-05",
+
+  "comment_test_configurations": "All combinations to test",
+  "test_matrix": {
+    "symbols": ["ETH/USDT", "BTC/USDT", "BNB/USDT"],
+    "timeframes": ["15m", "1h"],
+    "years": [2019, 2020, 2021, 2022, 2023, 2024],
+    "leverages": [3.0, 5.0]
+  },
+
+  "comment_ict_parameters": "ICT indicator parameters (same for all tests)",
+  "ict_parameters": {
+    "fvg": {
+      "min_gap_size": 0.0005,
+      "lookback": 40
+    },
+    "order_blocks": {
+      "swing_length": 5,
+      "min_volume_percentile": 40
+    },
+    "liquidity_sweeps": {
+      "lookback": 15,
+      "sweep_threshold": 0.0005
+    }
+  },
+
+  "comment_backtest_settings": "Backtest execution settings",
+  "backtest_settings": {
+    "initial_capital": 10000,
+    "exchange": "binance",
+    "commission_rate": 0.0004,
+    "slippage_pct": 0.0005
+  },
+
+  "comment_output_files": "Output file paths",
+  "output_files": {
+    "results": "FINAL_BACKTEST_RESULTS.json",
+    "best_settings": "best_settings_strategy_params.json"
+  },
+
+  "comment_best_selection": "Criteria for selecting best configuration",
+  "best_selection_criteria": {
+    "primary_metric": "sharpe_ratio",
+    "min_trades": 10,
+    "min_sharpe": 0.5,
+    "description": "Select config with highest Sharpe ratio (min 10 trades, min Sharpe 0.5)"
+  },
+
+  "comment_notes": "How to customize",
+  "customization_notes": {
+    "add_symbols": "Add to symbols array (e.g., 'SOL/USDT', 'AVAX/USDT')",
+    "add_timeframes": "Add to timeframes array (e.g., '5m', '4h', '1d')",
+    "add_years": "Add to years array (e.g., 2018, 2025)",
+    "add_leverages": "Add to leverages array (e.g., 1.0, 10.0, 20.0)",
+    "change_ict_params": "Modify ict_parameters section",
+    "change_metric": "Change primary_metric to 'return_pct', 'profit_factor', 'win_rate', etc."
+  }
+}

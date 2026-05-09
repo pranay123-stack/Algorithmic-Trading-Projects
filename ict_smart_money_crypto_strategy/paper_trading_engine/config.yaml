@@ -1,0 +1,82 @@
+# =============================================================================
+# ICT Smart Money Crypto Paper Trading Engine - Configuration
+# =============================================================================
+
+# Exchange Settings
+exchange:
+  name: binance
+  use_testnet: false  # Use real Binance mainnet for accurate market data
+
+# Trading Symbol & Timeframe
+trading:
+  symbol: ETH/USDT
+  timeframe: 15m
+  leverage: 5.0
+  initial_capital: 10000
+  max_positions: 1
+
+# Capital & Risk Management
+risk:
+  risk_per_trade: 0.02        # 2% risk per trade
+  max_risk_pct: 0.03          # 3% maximum risk per position
+  max_daily_loss_pct: 5.0     # Stop trading if down 5% in a day
+  max_drawdown_pct: 25.0      # Alert level for drawdown
+
+# ICT Indicators Configuration
+indicators:
+  # Fair Value Gap (FVG)
+  fvg:
+    enabled: true
+    min_gap_size: 0.0005      # Minimum gap size (0.05%)
+    lookback: 40              # Candles to look back
+
+  # Order Blocks (OB)
+  order_blocks:
+    enabled: true
+    swing_length: 5           # Swing detection length
+    min_volume_percentile: 40 # Minimum volume threshold
+
+  # Liquidity Sweeps
+  liquidity_sweeps:
+    enabled: true
+    lookback: 15              # Candles to look back
+    sweep_threshold: 0.0005   # Threshold for sweep detection
+
+  # Daily Bias (EMA)
+  bias:
+    enabled: true
+    ema_period: 50            # EMA period for bias
+
+  # ATR (Volatility Filter)
+  atr:
+    period: 14
+    min_atr_pct: 0.003        # 0.3% minimum volatility filter
+
+# Strategy Parameters
+strategy:
+  rr_ratio: 2.0               # 2:1 reward-to-risk ratio
+  stop_lookback: 30           # Structure-based stop (30 bars)
+  max_holding_bars: 80        # Maximum holding period
+  max_position_size_pct: 0.2  # 20% max position size
+
+# Order Execution
+execution:
+  slippage_pct: 0.0005        # 0.05% slippage
+  commission_rate: 0.0004     # 0.04% commission (Binance)
+
+# Data Management
+data:
+  fetch_interval_seconds: 60  # Fetch new data every 60 seconds
+  lookback_candles: 500       # Historical candles to maintain
+
+# Logging Configuration
+logging:
+  level: INFO                 # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_file: paper_trading.log # Logs are automatically saved to trading_data/logs/
+
+# Performance Expectations (from backtest)
+performance:
+  expected_win_rate: 0.357
+  expected_sharpe: 2.38
+  expected_profit_factor: 1.03
+  expected_trades_per_month: 20

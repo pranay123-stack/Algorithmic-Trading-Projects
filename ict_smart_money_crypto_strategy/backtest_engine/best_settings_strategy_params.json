@@ -1,0 +1,74 @@
+{
+  "description": "Best parameters from comprehensive backtest",
+  "generated_at": "2025-10-05T11:06:12.097507",
+  "selection_criteria": "Highest Sharpe ratio with minimum trade count",
+  "best_configuration": {
+    "symbol": "ETH/USDT",
+    "timeframe": "15m",
+    "leverage": 5.0,
+    "test_year": 2021
+  },
+  "performance": {
+    "sharpe_ratio": 2.3774979996779173,
+    "sortino_ratio": 1.8385338720251487,
+    "return_pct": 7.282952879979566,
+    "max_drawdown_pct": 40.42356896212755,
+    "win_rate": 35.7429718875502,
+    "profit_factor": 1.0322036536837662,
+    "trades": 249,
+    "avg_win": 262.28758710209075,
+    "avg_loss": -141.34562477555065
+  },
+  "trading": {
+    "symbol": "ETH/USDT",
+    "timeframe": "15m",
+    "leverage": 5.0,
+    "initial_capital": 10000,
+    "exchange": "binance"
+  },
+  "ict_indicators": {
+    "fvg": {
+      "min_gap_size": 0.0005,
+      "lookback": 40,
+      "description": "Fair Value Gap detection"
+    },
+    "order_blocks": {
+      "swing_length": 5,
+      "min_volume_percentile": 40,
+      "description": "Order Block detection"
+    },
+    "liquidity_sweeps": {
+      "lookback": 15,
+      "sweep_threshold": 0.0005,
+      "description": "Liquidity sweep detection"
+    },
+    "bias": {
+      "ema_period": 50,
+      "description": "Daily bias calculation"
+    },
+    "atr": {
+      "period": 14,
+      "min_atr_pct": 0.003,
+      "description": "ATR volatility filter"
+    }
+  },
+  "strategy": {
+    "risk_per_trade": 0.02,
+    "rr_ratio": 2.0,
+    "max_position_size_pct": 0.2,
+    "max_risk_pct": 0.03,
+    "stop_lookback": 30,
+    "max_holding_bars": 80,
+    "description": "2% risk per trade, 2:1 reward:risk, structure-based stops"
+  },
+  "backtest": {
+    "commission_rate": 0.0004,
+    "slippage_pct": 0.0005,
+    "description": "0.04% commission (Binance futures), 0.05% slippage"
+  },
+  "notes": {
+    "usage": "Use these parameters for paper/live trading",
+    "warning": "This is the best SINGLE configuration. Results may vary in live trading.",
+    "recommendation": "Test in paper trading before live deployment"
+  }
+}
