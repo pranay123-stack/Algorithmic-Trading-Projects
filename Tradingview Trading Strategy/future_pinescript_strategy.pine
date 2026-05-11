@@ -1,0 +1,224 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TradeDontPlay
+// Modified for Traditional Commodities & Major US Index Futures Only
+
+//@version=5
+strategy("COT Strategy - Commodities & Index Futures", overlay = true, initial_capital = 100000, default_qty_type = strategy.percent_of_equity, default_qty_value = 100, commission_type = strategy.commission.percent, commission_value = 0.05)
+import TradingView/LibraryCOT/2 as cot
+
+// Directions.
+var string ND  = " [ND]"
+var string LS  = " [L|Sh]"
+var string LSS = " [L|Sh|Sp]"
+
+// ————— Metric names
+var string MB01 = "Open Interest"
+var string MB02 = "Noncommercial Positions"
+var string MB03 = "Commercial Positions"
+var string MB04 = "Total Reportable Positions"
+var string MB05 = "Nonreportable Positions"
+var string MB06 = "Traders Total"
+var string MB07 = "Traders Noncommercial"
+var string MB08 = "Traders Commercial"
+var string MB09 = "Traders Total Reportable"
+var string MB10 = "Concentration Gross LT 4 TDR"
+var string MB11 = "Concentration Gross LT 8 TDR"
+var string MB12 = "Concentration Net LT 4 TDR"
+var string MB13 = "Concentration Net LT 8 TDR"
+
+// Metric name options.
+var string M01 = MB01 + ND
+var string M02 = MB02 + LSS
+var string M03 = MB03 + LS
+var string M04 = MB04 + LS
+var string M05 = MB05 + LS
+var string M06 = MB06 + ND
+var string M07 = MB07 + LSS
+var string M08 = MB08 + LS
+var string M09 = MB09 + LS
+var string M10 = MB10 + LS
+var string M11 = MB11 + LS
+var string M12 = MB12 + LS
+var string M13 = MB13 + LS
+
+// Tooltips.
+var string TT_METRIC = "Each metric is followed by its possible directions in square brackets:\n [ND] 🠆 No Direction\n [L] 🠆 Long\n [Sh] 🠆 Short\n [Sp] 🠆 Spreading" 
+var string TT_DIR    = "The 'direction' must be one that is allowed for the chosen metric. Valid selections are displayed with each metric in the above field's dropdown menu items."
+var string TT_TYPE   = "The 'type' qualifies the metric data to be retrieved."
+var string TT_MODE   = 
+  "Determines which information from the chart's symbol will be used to fetch COT data:\n
+  • 'Root' uses the root of a futures symbol ('ES' for 'ESH2020').\n
+  • 'Base currency' uses the base currency in a forex pair ('EUR' for 'EURUSD').\n
+  • 'Currency' uses the quote currency, i.e., the currency the symbol is traded in ('JPY' for 'TSE:9984' or 'USDJPY').\n
+  • 'Auto' tries all modes, in turn.\n
+  If no COT data can be found, a runtime error is generated."
+var string TT_OVERRIDE = "Instead of letting the script generate the CFTC COT code from the chart and the above selections when this field is empty, you can specify an unrelated CFTC COT code here, e.g., 001602 for wheat futures."
+var string TT_INSTRUMENTS = "⚠️ SUPPORTED INSTRUMENTS ONLY:\n• Major US Index Futures: ES, NQ, YM, RTY\n• Energy: CL, NG, RB, HO\n• Metals: GC, SI, HG, PL, PA\n• Agriculture: ZC, ZW, ZS, ZL, ZM, CT, KC, CC, SB, OJ\n• Livestock: LE, GF, HE\n\n❌ NOT SUPPORTED: Crypto futures (BTC, ETH), Non-US indices (DAX, Nikkei, FTSE)"
+
+// Inputs.
+string i_instrumentInfo = input.string("READ ME", "⚠️ Supported Instruments", options=["READ ME"], tooltip = TT_INSTRUMENTS, inline="info", group="📋 Instructions")
+
+// COT Settings
+string metricNameInput1      = input.string(M03,            "Metric 1 (Position)",  options = [M01, M02, M03, M04, M05, M06, M07, M08, M09, M10, M11, M12, M13], tooltip = TT_METRIC, group="COT Settings")
+string metricNameInput2      = input.string(M01,            "Metric 2 (OI)",        options = [M01, M02, M03, M04, M05, M06, M07, M08, M09, M10, M11, M12, M13], tooltip = TT_METRIC, group="COT Settings")
+string metricDirectionInputLong = input.string("Long",      "Long Direction",       options = ["No direction", "Long", "Short", "Spreading"], tooltip = TT_DIR, group="COT Settings")
+string metricDirectionInputShort = input.string("Short",    "Short Direction",      options = ["No direction", "Long", "Short", "Spreading"], tooltip = TT_DIR, group="COT Settings")
+string metricDirectionInput = input.string("No direction",  "OI Direction",         options = ["No direction", "Long", "Short", "Spreading"], tooltip = TT_DIR, group="COT Settings")
+string metricTypeInput      = input.string("All",           "Type",                 options = ["All", "Old", "Other"], tooltip = TT_TYPE, group="COT Settings")
+string selectionModeInput   = input.string("Auto",          "Selection Mode",       options = ["Auto", "Root", "Base currency", "Currency"], tooltip = TT_MODE, group="COT Settings")
+string includeOptionsInput  = input.string("Futures",       "Include Options",      options = ["Futures", "Options", "Futures + Options"], group="COT Settings")
+string userCFTCCodeInput    = input.string("",              "CFTC Code Override",   tooltip = TT_OVERRIDE, group="COT Settings")
+
+// Strategy Settings
+int CILengthInput = input.int(26, "Commercial Index Length", minval=1, group="Strategy Settings")
+int RSILengthInput = input.int(8, "RSI Length", minval=1, group="Strategy Settings")
+bool useLongTrades = input.bool(true, "Enable Long Trades", group="Strategy Settings")
+bool useShortTrades = input.bool(true, "Enable Short Trades", group="Strategy Settings")
+
+// Exit Settings
+bool useFixedTP = input.bool(false, "Use Fixed Take Profit %", group="Exit Settings")
+float takeProfitPct = input.float(5.0, "Take Profit %", minval=0.1, step=0.1, group="Exit Settings")
+bool useFixedSL = input.bool(false, "Use Fixed Stop Loss %", group="Exit Settings")
+float stopLossPct = input.float(2.0, "Stop Loss %", minval=0.1, step=0.1, group="Exit Settings")
+bool useOppositeSignalExit = input.bool(true, "Exit on Opposite Signal", group="Exit Settings")
+
+
+getMetricName(simple string userMetricName) =>
+    result = switch userMetricName
+        M01 => MB01
+        M02 => MB02
+        M03 => MB03
+        M04 => MB04
+        M05 => MB05
+        M06 => MB06
+        M07 => MB07
+        M08 => MB08
+        M09 => MB09
+        M10 => MB10
+        M11 => MB11
+        M12 => MB12
+        M13 => MB13
+        => ""
+
+// Chart-based or user-based CFTC code.
+var string cftcCode = userCFTCCodeInput != "" ? userCFTCCodeInput : cot.convertRootToCOTCode(selectionModeInput)
+
+
+// Fetch the two sources from which we can generate all three combinations of futures and options data.
+string typeCOT = "Legacy"
+string metricName1 = getMetricName(metricNameInput1)
+
+string futuresOnlyTickerLong = cot.COTTickerid(typeCOT, cftcCode, false,  metricName1, metricDirectionInputLong, metricTypeInput)
+float commLong = request.security(futuresOnlyTickerLong, "D", close, ignore_invalid_symbol = true)
+
+string futuresOnlyTickerShort = cot.COTTickerid(typeCOT, cftcCode, false,  metricName1, metricDirectionInputShort, metricTypeInput)
+float commShort = request.security(futuresOnlyTickerShort, "D", close, ignore_invalid_symbol = true)
+
+string metricName2 = getMetricName(metricNameInput2)
+
+string futuresOnlyTicker = cot.COTTickerid(typeCOT, cftcCode, false,  metricName2, metricDirectionInput, metricTypeInput)
+float openInterest = request.security(futuresOnlyTicker, "D", close, ignore_invalid_symbol = true)
+
+if barstate.islastconfirmedhistory and (na(commLong)or na(commShort)or na(openInterest))
+    runtime.error(str.format("⚠️ COT DATA NOT FOUND!\n\nThis strategy only works with:\n• US Index Futures (ES, NQ, YM, RTY)\n• Traditional Commodities (GC, SI, CL, NG, ZC, ZW, etc.)\n\nCrypto futures and non-US indices are NOT supported.\n\nCurrent symbol: {0}\nSelection mode: {1}", syminfo.ticker, selectionModeInput))
+
+
+
+// Building Formula Commercial Index
+comm_net = commLong - commShort
+q = comm_net / openInterest
+
+// Index_26_Wochen
+max = ta.highest(q, CILengthInput)
+min = ta.lowest(q, CILengthInput)
+index_A = 100 * (q - min) / (max - min)
+
+previousCommercialIndex = nz(index_A[1], 50)
+RSI = ta.rsi(close, RSILengthInput)
+previousRSI = nz(ta.rsi(close, RSILengthInput)[1], 50)
+
+
+// Long
+
+// Commercial Index check
+isCommercialIndexInRangeLong = index_A > 90
+isPreviousCommercialIndexInRangeLong = previousCommercialIndex > 90
+
+// RSI check
+isPreviousRSIInRangeLong = 0 <= previousRSI and previousRSI <= 30
+isRSIInRangeLong = RSI > 30
+
+// Check entry-condition
+isEntryLong = isCommercialIndexInRangeLong
+  and isPreviousCommercialIndexInRangeLong
+  and isPreviousRSIInRangeLong
+  and isRSIInRangeLong
+
+// Consecutive signals are not drawn
+isEntryLongFinal = nz(not isEntryLong[1], false) and isEntryLong
+
+// Plot
+plotshape(
+  series=isEntryLongFinal,
+  title="RSI Long Strategy Entry-Point",
+  style=shape.arrowup,
+  location=location.belowbar,
+  color=color.green,
+  size=size.large)
+
+if isEntryLongFinal
+    alert("Go Long", alert.freq_once_per_bar_close)
+
+// Strategy Entry: Long
+if isEntryLongFinal and useLongTrades
+    strategy.entry("Long", strategy.long)
+    if useFixedTP
+        strategy.exit("TP Long", "Long", profit = close * takeProfitPct / 100 / syminfo.mintick)
+    if useFixedSL
+        strategy.exit("SL Long", "Long", loss = close * stopLossPct / 100 / syminfo.mintick)
+
+// Short
+
+// Commercial Index check
+isCommercialIndexInRangeShort = index_A < 10
+isPreviousCommercialIndexInRangeShort = previousCommercialIndex < 10
+
+// RSI 8 check
+isPreviousRSIInRangeShort = 70 <= previousRSI and previousRSI <= 100
+isRSIInRangeShort = RSI < 70
+
+// Check entry-condition
+isEntryShort = isCommercialIndexInRangeShort
+  and isPreviousCommercialIndexInRangeShort
+  and isPreviousRSIInRangeShort
+  and isRSIInRangeShort
+
+// Consecutive signals are not drawn
+isEntryShortFinal = nz(not isEntryShort[1], false) and isEntryShort
+
+// Plot
+plotshape(
+  series=isEntryShortFinal,
+  title="RSI Short Strategy Entry-Point",
+  style=shape.arrowdown,
+  location=location.abovebar,
+  color=color.red,
+  size=size.large)
+
+if isEntryShortFinal
+    alert("Go Short", alert.freq_once_per_bar_close)
+
+// Strategy Entry: Short
+if isEntryShortFinal and useShortTrades
+    strategy.entry("Short", strategy.short)
+    if useFixedTP
+        strategy.exit("TP Short", "Short", profit = close * takeProfitPct / 100 / syminfo.mintick)
+    if useFixedSL
+        strategy.exit("SL Short", "Short", loss = close * stopLossPct / 100 / syminfo.mintick)
+
+// Exit on Opposite Signal
+if useOppositeSignalExit
+    if isEntryShortFinal
+        strategy.close("Long", comment="Opposite Signal")
+    if isEntryLongFinal
+        strategy.close("Short", comment="Opposite Signal")

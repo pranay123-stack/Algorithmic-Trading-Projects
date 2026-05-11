@@ -1,0 +1,128 @@
+// This Pine Script™ source code is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+// © Range XV Indicator - ATAS Style Range Bar Visualization
+
+//@version=5
+indicator("Range XV [ATAS Style]", shorttitle="RangeXV", overlay=true, max_boxes_count=500, max_labels_count=500)
+
+// === INPUTS ===
+string GRP1 = "Range Settings"
+rangeSize = input.float(10, "Range Size (Points)", minval=0.1, step=0.5, group=GRP1, tooltip="Price range to form one range bar")
+volumeFilter = input.float(1.0, "Volume Confirm (x Avg)", minval=0.1, step=0.1, group=GRP1, tooltip="Min volume vs average to confirm bar")
+volLookback = input.int(20, "Volume Lookback", minval=5, group=GRP1)
+
+string GRP2 = "Colors"
+bullColor = input.color(color.new(color.green, 30), "Bull Range", group=GRP2)
+bearColor = input.color(color.new(color.red, 30), "Bear Range", group=GRP2)
+neutralColor = input.color(color.new(color.gray, 50), "Developing Range", group=GRP2)
+highVolColor = input.color(color.yellow, "High Volume Candle", group=GRP2)
+
+string GRP3 = "Display"
+showBoxes = input.bool(true, "Show Range Boxes", group=GRP3)
+showSignals = input.bool(true, "Show Breakout Signals", group=GRP3)
+showVolumeHighlight = input.bool(true, "Highlight High Volume Candles", group=GRP3)
+showTable = input.bool(true, "Show Info Table", group=GRP3)
+
+// === VARIABLES ===
+var float rangeHigh = na
+var float rangeLow = na
+var float rangeOpen = na
+var int rangeStartBar = na
+var float accumVolume = 0.0
+var int rangeCount = 0
+var box currentBox = na
+
+// === CALCULATIONS ===
+avgVolume = ta.sma(volume, volLookback)
+volumeRatio = avgVolume > 0 ? volume / avgVolume : 1.0
+isHighVolume = volumeRatio >= volumeFilter
+
+// Initialize on first bar
+if na(rangeHigh)
+    rangeHigh := high
+    rangeLow := low
+    rangeOpen := open
+    rangeStartBar := bar_index
+    accumVolume := volume
+
+// Update current range
+rangeHigh := math.max(rangeHigh, high)
+rangeLow := math.min(rangeLow, low)
+accumVolume := accumVolume + volume
+currentRange = rangeHigh - rangeLow
+
+// Check if range complete
+rangeComplete = currentRange >= rangeSize and isHighVolume
+
+// Direction
+priceChange = close - rangeOpen
+direction = priceChange > 0 ? 1 : priceChange < 0 ? -1 : 0
+
+// Range progress percentage
+rangeProgress = rangeSize > 0 ? (currentRange / rangeSize) * 100 : 0
+
+// === DRAW CURRENT DEVELOPING RANGE BOX ===
+if showBoxes
+    box.delete(currentBox)
+    boxCol = direction > 0 ? (isHighVolume ? bullColor : neutralColor) : direction < 0 ? (isHighVolume ? bearColor : neutralColor) : neutralColor
+    currentBox := box.new(rangeStartBar, rangeHigh, bar_index, rangeLow, border_color=boxCol, bgcolor=color.new(boxCol, 85), border_width=2)
+
+// === RANGE COMPLETION ===
+var label sigLabel = na
+
+if rangeComplete
+    rangeCount := rangeCount + 1
+
+    // Draw completion signal
+    if showSignals
+        label.delete(sigLabel)
+        if direction > 0
+            sigLabel := label.new(bar_index, rangeLow, "▲", style=label.style_label_up, color=bullColor, textcolor=color.white, size=size.small)
+        else if direction < 0
+            sigLabel := label.new(bar_index, rangeHigh, "▼", style=label.style_label_down, color=bearColor, textcolor=color.white, size=size.small)
+
+    // Reset for new range
+    rangeHigh := close
+    rangeLow := close
+    rangeOpen := close
+    rangeStartBar := bar_index
+    accumVolume := 0.0
+
+// === HIGHLIGHT HIGH VOLUME CANDLES (ATAS STYLE) ===
+barcolor(showVolumeHighlight and volumeRatio > 2.0 ? highVolColor : na)
+
+// === BREAKOUT SIGNALS ===
+rangeUp = rangeComplete and direction > 0
+rangeDown = rangeComplete and direction < 0
+
+plotshape(showSignals and rangeUp, "Bull Breakout", shape.triangleup, location.belowbar, bullColor, size=size.small)
+plotshape(showSignals and rangeDown, "Bear Breakout", shape.triangledown, location.abovebar, bearColor, size=size.small)
+
+// === INFO TABLE ===
+var table tbl = table.new(position.top_right, 2, 7, bgcolor=color.new(color.black, 85), border_width=1)
+
+if showTable and barstate.islast
+    dirText = direction > 0 ? "BULL ▲" : direction < 0 ? "BEAR ▼" : "NEUTRAL"
+    dirCol = direction > 0 ? bullColor : direction < 0 ? bearColor : neutralColor
+    volStatus = isHighVolume ? "✓ CONFIRMED" : "○ Waiting"
+    volCol = isHighVolume ? color.green : color.orange
+
+    table.cell(tbl, 0, 0, "Range XV", text_color=color.white, text_size=size.small, bgcolor=color.new(color.blue, 60))
+    table.cell(tbl, 1, 0, "", bgcolor=color.new(color.blue, 60))
+    table.cell(tbl, 0, 1, "Range Size", text_color=color.white, text_size=size.tiny)
+    table.cell(tbl, 1, 1, str.tostring(rangeSize, "#.##"), text_color=color.white, text_size=size.tiny)
+    table.cell(tbl, 0, 2, "Current", text_color=color.white, text_size=size.tiny)
+    table.cell(tbl, 1, 2, str.tostring(currentRange, "#.##") + " (" + str.tostring(rangeProgress, "#.#") + "%)", text_color=color.white, text_size=size.tiny)
+    table.cell(tbl, 0, 3, "Direction", text_color=color.white, text_size=size.tiny)
+    table.cell(tbl, 1, 3, dirText, text_color=dirCol, text_size=size.tiny)
+    table.cell(tbl, 0, 4, "Volume", text_color=color.white, text_size=size.tiny)
+    table.cell(tbl, 1, 4, volStatus, text_color=volCol, text_size=size.tiny)
+    table.cell(tbl, 0, 5, "Vol Ratio", text_color=color.white, text_size=size.tiny)
+    table.cell(tbl, 1, 5, str.tostring(volumeRatio, "#.##") + "x", text_color=color.white, text_size=size.tiny)
+    table.cell(tbl, 0, 6, "Range Bars", text_color=color.white, text_size=size.tiny)
+    table.cell(tbl, 1, 6, str.tostring(rangeCount), text_color=color.white, text_size=size.tiny)
+
+// === ALERTS ===
+alertcondition(rangeUp, "Bullish Range", "Range XV: Bullish breakout with volume!")
+alertcondition(rangeDown, "Bearish Range", "Range XV: Bearish breakout with volume!")
+alertcondition(rangeComplete, "Range Complete", "Range XV: New range bar formed")

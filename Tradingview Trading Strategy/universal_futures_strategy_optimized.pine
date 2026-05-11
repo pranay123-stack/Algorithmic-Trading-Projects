@@ -1,0 +1,432 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Optimized Universal Futures Strategy
+// Works with ALL asset classes: Forex, Crypto, Commodities, Index Futures
+
+//@version=5
+strategy("Universal Futures Strategy - Multi-Asset Optimized",
+     overlay = true,
+     initial_capital = 100000,
+     default_qty_type = strategy.percent_of_equity,
+     default_qty_value = 100,
+     commission_type = strategy.commission.percent,
+     commission_value = 0.05,
+     pyramiding = 0)
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 📋 INPUTS
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Asset Class Selection
+var string TT_ASSET = "Select asset class for optimized parameters:\n• Forex: Currency pairs\n• Crypto: Bitcoin, Ethereum, etc.\n• Commodities: Gold, Oil, Agriculture\n• Indices: ES, NQ, DAX, etc."
+string assetClass = input.string("Auto", "Asset Class", options=["Auto", "Forex", "Crypto", "Commodities", "Indices"], tooltip=TT_ASSET, group="🎯 Asset Configuration")
+
+// Sentiment Indicator Settings (COT Alternative)
+var string TT_SENTIMENT = "Multi-layer sentiment proxy:\n• Money Flow Index: Volume-weighted momentum\n• Stochastic RSI: Dual momentum oscillator\n• Price Position: Relative price strength\nReplaces COT data with universal indicators"
+int mfiLength = input.int(14, "Money Flow Length", minval=5, maxval=50, group="📊 Sentiment Indicators", tooltip=TT_SENTIMENT)
+int stochRSILength = input.int(14, "Stochastic RSI Length", minval=5, maxval=30, group="📊 Sentiment Indicators")
+int stochRSISmooth = input.int(3, "Stochastic RSI Smoothing", minval=1, maxval=10, group="📊 Sentiment Indicators")
+int pricePositionLength = input.int(100, "Price Position Length", minval=20, maxval=200, group="📊 Sentiment Indicators")
+
+// Adaptive Thresholds
+var string TT_ADAPTIVE = "Thresholds adjust based on volatility:\n• High volatility = Wider thresholds\n• Low volatility = Tighter thresholds"
+bool useAdaptiveThresholds = input.bool(true, "Use Adaptive Thresholds", group="🔄 Adaptive Parameters", tooltip=TT_ADAPTIVE)
+int volatilityLength = input.int(20, "Volatility Lookback", minval=10, maxval=100, group="🔄 Adaptive Parameters")
+float baseThresholdLong = input.float(85.0, "Base Long Threshold", minval=50, maxval=100, step=1, group="🔄 Adaptive Parameters")
+float baseThresholdShort = input.float(15.0, "Base Short Threshold", minval=0, maxval=50, step=1, group="🔄 Adaptive Parameters")
+
+// Multi-Timeframe Analysis
+var string TT_MTF = "Confirms signals across multiple timeframes:\n• Fast: Quick reversals\n• Medium: Trend confirmation\n• Slow: Major positioning"
+bool useMTF = input.bool(true, "Enable Multi-Timeframe", group="⏱️ Multi-Timeframe", tooltip=TT_MTF)
+string mtfFast = input.timeframe("60", "Fast Timeframe", group="⏱️ Multi-Timeframe")
+string mtfMedium = input.timeframe("240", "Medium Timeframe", group="⏱️ Multi-Timeframe")
+string mtfSlow = input.timeframe("D", "Slow Timeframe", group="⏱️ Multi-Timeframe")
+float mtfWeight = input.float(0.3, "MTF Confirmation Weight", minval=0.1, maxval=1.0, step=0.1, group="⏱️ Multi-Timeframe")
+
+// Regime Filter Settings
+var string TT_REGIME = "Filters trades based on market conditions:\n• ADX: Trend strength (avoid choppy markets)\n• Volatility: High/low volatility regimes\n• Volume: Confirmation of moves"
+bool useRegimeFilter = input.bool(true, "Enable Regime Filter", group="🌊 Market Regime", tooltip=TT_REGIME)
+int adxLength = input.int(14, "ADX Length", minval=7, maxval=30, group="🌊 Market Regime")
+float adxThreshold = input.float(20.0, "Min ADX for Trending", minval=15, maxval=40, step=1, group="🌊 Market Regime")
+bool requireTrending = input.bool(false, "Only Trade in Trends", group="🌊 Market Regime")
+bool requireRanging = input.bool(false, "Only Trade in Ranges", group="🌊 Market Regime")
+
+// RSI Settings
+int rsiLength = input.int(8, "RSI Length", minval=2, maxval=20, group="📈 RSI Settings")
+float rsiOversold = input.float(30.0, "RSI Oversold", minval=10, maxval=40, step=1, group="📈 RSI Settings")
+float rsiOverbought = input.float(70.0, "RSI Overbought", minval=60, maxval=90, step=1, group="📈 RSI Settings")
+
+// Risk Management
+var string TT_RISK = "Advanced risk management:\n• ATR-based stops adapt to volatility\n• Trailing stops lock in profits\n• Position sizing scales with volatility"
+bool useATRStops = input.bool(true, "Use ATR-Based Stops", group="🛡️ Risk Management", tooltip=TT_RISK)
+int atrLength = input.int(14, "ATR Length", minval=7, maxval=30, group="🛡️ Risk Management")
+float atrMultiplierSL = input.float(2.0, "ATR Stop Loss Multiplier", minval=0.5, maxval=5.0, step=0.1, group="🛡️ Risk Management")
+float atrMultiplierTP = input.float(3.0, "ATR Take Profit Multiplier", minval=1.0, maxval=10.0, step=0.1, group="🛡️ Risk Management")
+bool useTrailingStop = input.bool(true, "Enable Trailing Stop", group="🛡️ Risk Management")
+float trailingStopPercent = input.float(1.5, "Trailing Stop %", minval=0.5, maxval=5.0, step=0.1, group="🛡️ Risk Management")
+
+// Fixed Risk (Alternative)
+bool useFixedRisk = input.bool(false, "Use Fixed Risk Instead", group="🛡️ Risk Management")
+float fixedSLPercent = input.float(2.0, "Fixed Stop Loss %", minval=0.1, maxval=10.0, step=0.1, group="🛡️ Risk Management")
+float fixedTPPercent = input.float(4.0, "Fixed Take Profit %", minval=0.1, maxval=20.0, step=0.1, group="🛡️ Risk Management")
+
+// Trade Direction
+bool useLongTrades = input.bool(true, "Enable Long Trades", group="📍 Trade Settings")
+bool useShortTrades = input.bool(true, "Enable Short Trades", group="📍 Trade Settings")
+bool useOppositeSignalExit = input.bool(true, "Exit on Opposite Signal", group="📍 Trade Settings")
+
+// Asset-Specific Tuning
+var string TT_TUNING = "Fine-tune for different asset characteristics:\n• Crypto: Higher volatility, 24/7 trading\n• Forex: Lower volatility, trending behavior\n• Commodities: Seasonal patterns\n• Indices: Mean-reverting tendencies"
+float volatilityMultiplier = input.float(1.0, "Volatility Sensitivity", minval=0.5, maxval=2.0, step=0.1, group="⚙️ Asset-Specific Tuning", tooltip=TT_TUNING)
+float signalSensitivity = input.float(1.0, "Signal Sensitivity", minval=0.5, maxval=2.0, step=0.1, group="⚙️ Asset-Specific Tuning")
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 🔧 FUNCTIONS - SENTIMENT INDICATORS (COT REPLACEMENT)
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Money Flow Index (Volume-weighted RSI alternative)
+f_mfi(simple int length) =>
+    typicalPrice = hlc3
+    rawMoneyFlow = typicalPrice * volume
+
+    positiveFlow = 0.0
+    negativeFlow = 0.0
+
+    for i = 0 to length - 1
+        if typicalPrice[i] > typicalPrice[i + 1]
+            positiveFlow += rawMoneyFlow[i]
+        else if typicalPrice[i] < typicalPrice[i + 1]
+            negativeFlow += rawMoneyFlow[i]
+
+    moneyRatio = negativeFlow == 0 ? 100 : positiveFlow / negativeFlow
+    mfi = 100 - (100 / (1 + moneyRatio))
+    mfi
+
+// Stochastic RSI (Dual momentum oscillator)
+f_stochRSI(simple int rsiLen, simple int stochLen, simple int smooth) =>
+    rsiValue = ta.rsi(close, rsiLen)
+    rsiHigh = ta.highest(rsiValue, stochLen)
+    rsiLow = ta.lowest(rsiValue, stochLen)
+    stochRSI = (rsiHigh - rsiLow) == 0 ? 50 : (rsiValue - rsiLow) / (rsiHigh - rsiLow) * 100
+    smoothed = ta.sma(stochRSI, smooth)
+    smoothed
+
+// Price Position Index (Percentile ranking)
+f_pricePosition(simple int length) =>
+    highest = ta.highest(high, length)
+    lowest = ta.lowest(low, length)
+    position = (highest - lowest) == 0 ? 50 : (close - lowest) / (highest - lowest) * 100
+    position
+
+// Composite Sentiment Index (Replaces Commercial Index)
+f_compositeSentiment(simple int mfiLen, simple int stochLen, simple int stochSmooth, simple int priceLen) =>
+    mfi = f_mfi(mfiLen)
+    stochRSI = f_stochRSI(14, stochLen, stochSmooth)
+    pricePos = f_pricePosition(priceLen)
+
+    // Weighted average (MFI has higher weight)
+    composite = (mfi * 0.4) + (stochRSI * 0.3) + (pricePos * 0.3)
+    composite
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 🔧 FUNCTIONS - ADAPTIVE PARAMETERS
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Calculate normalized volatility (0-1 scale)
+f_normalizedVolatility(simple int length) =>
+    atr = ta.atr(length)
+    atrHigh = ta.highest(atr, length * 2)
+    atrLow = ta.lowest(atr, length * 2)
+    normalized = (atrHigh - atrLow) == 0 ? 0.5 : (atr - atrLow) / (atrHigh - atrLow)
+    normalized
+
+// Adaptive thresholds based on volatility
+f_adaptiveThresholds(float baseThresholdLong, float baseThresholdShort, simple int volLength) =>
+    volatility = f_normalizedVolatility(volLength)
+
+    // In high volatility: widen thresholds (harder to trigger)
+    // In low volatility: tighten thresholds (easier to trigger)
+    adjustment = volatility * volatilityMultiplier * 10
+
+    adaptiveLong = baseThresholdLong + adjustment
+    adaptiveShort = baseThresholdShort - adjustment
+
+    // Clamp values
+    adaptiveLong := math.min(math.max(adaptiveLong, 70), 95)
+    adaptiveShort := math.min(math.max(adaptiveShort, 5), 30)
+
+    [adaptiveLong, adaptiveShort]
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 🔧 FUNCTIONS - REGIME FILTERS
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ADX Calculation
+f_adx(simple int length) =>
+    tr = ta.tr
+    plusDM = high - high[1]
+    minusDM = low[1] - low
+
+    plusDM := plusDM > minusDM and plusDM > 0 ? plusDM : 0.0
+    minusDM := minusDM > plusDM and minusDM > 0 ? minusDM : 0.0
+
+    smoothedTR = ta.rma(tr, length)
+    smoothedPlusDM = ta.rma(plusDM, length)
+    smoothedMinusDM = ta.rma(minusDM, length)
+
+    plusDI = smoothedTR == 0 ? 0 : smoothedPlusDM / smoothedTR * 100
+    minusDI = smoothedTR == 0 ? 0 : smoothedMinusDM / smoothedTR * 100
+
+    dx = (plusDI + minusDI) == 0 ? 0 : math.abs(plusDI - minusDI) / (plusDI + minusDI) * 100
+    adx = ta.rma(dx, length)
+
+    [adx, plusDI, minusDI]
+
+// Regime Classification
+f_marketRegime(float adxVal, float adxThresh) =>
+    isTrending = adxVal > adxThresh
+    isRanging = adxVal <= adxThresh
+    [isTrending, isRanging]
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 🔧 FUNCTIONS - MULTI-TIMEFRAME ANALYSIS
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Get sentiment from another timeframe
+f_mtfSentiment(string tf) =>
+    sentiment = request.security(syminfo.tickerid, tf,
+         f_compositeSentiment(mfiLength, stochRSILength, stochRSISmooth, pricePositionLength),
+         lookahead=barmerge.lookahead_off)
+    sentiment
+
+// Multi-timeframe confirmation score
+f_mtfScore(float currentSentiment, float thresholdLong, float thresholdShort) =>
+    scoreLong = 0.0
+    scoreShort = 0.0
+
+    if useMTF
+        fastSentiment = f_mtfSentiment(mtfFast)
+        mediumSentiment = f_mtfSentiment(mtfMedium)
+        slowSentiment = f_mtfSentiment(mtfSlow)
+
+        // Long score
+        scoreLong += currentSentiment > thresholdLong ? 0.4 : 0.0
+        scoreLong += fastSentiment > thresholdLong ? 0.2 : 0.0
+        scoreLong += mediumSentiment > thresholdLong ? 0.2 : 0.0
+        scoreLong += slowSentiment > thresholdLong ? 0.2 : 0.0
+
+        // Short score
+        scoreShort += currentSentiment < thresholdShort ? 0.4 : 0.0
+        scoreShort += fastSentiment < thresholdShort ? 0.2 : 0.0
+        scoreShort += mediumSentiment < thresholdShort ? 0.2 : 0.0
+        scoreShort += slowSentiment < thresholdShort ? 0.2 : 0.0
+    else
+        // Single timeframe
+        scoreLong := currentSentiment > thresholdLong ? 1.0 : 0.0
+        scoreShort := currentSentiment < thresholdShort ? 1.0 : 0.0
+
+    [scoreLong, scoreShort]
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 🔧 FUNCTIONS - ASSET-SPECIFIC PARAMETERS
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Auto-detect asset class from symbol
+f_detectAssetClass() =>
+    detected = "Indices"
+    ticker = syminfo.ticker
+
+    // Crypto patterns
+    if str.contains(ticker, "BTC") or str.contains(ticker, "ETH") or str.contains(ticker, "USDT") or str.contains(ticker, "BUSD")
+        detected := "Crypto"
+    // Forex patterns
+    else if str.contains(ticker, "USD") or str.contains(ticker, "EUR") or str.contains(ticker, "GBP") or str.contains(ticker, "JPY") or str.contains(ticker, "AUD") or str.contains(ticker, "CAD") or str.contains(ticker, "CHF") or str.contains(ticker, "NZD")
+        detected := "Forex"
+    // Commodity patterns
+    else if str.contains(ticker, "GC") or str.contains(ticker, "CL") or str.contains(ticker, "SI") or str.contains(ticker, "NG") or str.contains(ticker, "HG") or str.contains(ticker, "ZC") or str.contains(ticker, "ZW") or str.contains(ticker, "ZS")
+        detected := "Commodities"
+    // Index patterns
+    else if str.contains(ticker, "ES") or str.contains(ticker, "NQ") or str.contains(ticker, "YM") or str.contains(ticker, "RTY") or str.contains(ticker, "DAX") or str.contains(ticker, "FTSE")
+        detected := "Indices"
+
+    detected
+
+// Get optimized parameters for asset class
+f_assetParameters(string assetClassInput) =>
+    finalAssetClass = assetClassInput == "Auto" ? f_detectAssetClass() : assetClassInput
+
+    // Default multipliers
+    volMult = 1.0
+    sigSens = 1.0
+    atrMult = 1.0
+
+    // Asset-specific tuning
+    if finalAssetClass == "Crypto"
+        volMult := 1.5  // Higher volatility
+        sigSens := 0.8  // More conservative signals
+        atrMult := 1.3  // Wider stops
+    else if finalAssetClass == "Forex"
+        volMult := 0.8  // Lower volatility
+        sigSens := 1.2  // More sensitive signals
+        atrMult := 0.9  // Tighter stops
+    else if finalAssetClass == "Commodities"
+        volMult := 1.2  // Medium-high volatility
+        sigSens := 1.0  // Standard sensitivity
+        atrMult := 1.1  // Standard stops
+    else if finalAssetClass == "Indices"
+        volMult := 1.0  // Medium volatility
+        sigSens := 1.0  // Standard sensitivity
+        atrMult := 1.0  // Standard stops
+
+    [finalAssetClass, volMult, sigSens, atrMult]
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 📊 CALCULATIONS
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Asset-specific parameters
+[detectedAssetClass, assetVolMult, assetSigSens, assetATRMult] = f_assetParameters(assetClass)
+
+// Core indicators
+sentimentIndex = f_compositeSentiment(mfiLength, stochRSILength, stochRSISmooth, pricePositionLength)
+previousSentiment = nz(sentimentIndex[1], 50)
+
+rsi = ta.rsi(close, rsiLength)
+previousRSI = nz(rsi[1], 50)
+
+// Adaptive thresholds
+var float thresholdLong = na
+var float thresholdShort = na
+
+if useAdaptiveThresholds
+    [thresholdLong, thresholdShort] = f_adaptiveThresholds(baseThresholdLong, baseThresholdShort, volatilityLength)
+else
+    thresholdLong := baseThresholdLong
+    thresholdShort := baseThresholdShort
+
+// Apply asset sensitivity
+var float adjThresholdLong = na
+var float adjThresholdShort = na
+adjThresholdLong := thresholdLong + (assetSigSens - 1) * 5
+adjThresholdShort := thresholdShort - (assetSigSens - 1) * 5
+
+// Regime filter
+[adxValue, plusDI, minusDI] = f_adx(adxLength)
+[isTrending, isRanging] = f_marketRegime(adxValue, adxThreshold)
+
+// Multi-timeframe confirmation
+[mtfScoreLong, mtfScoreShort] = f_mtfScore(sentimentIndex, adjThresholdLong, adjThresholdShort)
+
+// ATR for stops
+atr = ta.atr(atrLength)
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 🎯 SIGNAL GENERATION
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Regime filter check
+regimeOK = true
+if useRegimeFilter
+    if requireTrending
+        regimeOK := isTrending
+    else if requireRanging
+        regimeOK := isRanging
+    // If neither required, regime is always OK
+
+// LONG SIGNALS
+sentimentLongSetup = sentimentIndex > adjThresholdLong and previousSentiment > adjThresholdLong
+rsiLongTrigger = previousRSI <= rsiOversold and rsi > rsiOversold
+mtfLongConfirm = useMTF ? mtfScoreLong >= (1.0 - mtfWeight) : true
+
+isEntryLong = sentimentLongSetup and rsiLongTrigger and mtfLongConfirm and regimeOK
+isEntryLongFinal = nz(not isEntryLong[1], false) and isEntryLong
+
+// SHORT SIGNALS
+sentimentShortSetup = sentimentIndex < adjThresholdShort and previousSentiment < adjThresholdShort
+rsiShortTrigger = previousRSI >= rsiOverbought and rsi < rsiOverbought
+mtfShortConfirm = useMTF ? mtfScoreShort >= (1.0 - mtfWeight) : true
+
+isEntryShort = sentimentShortSetup and rsiShortTrigger and mtfShortConfirm and regimeOK
+isEntryShortFinal = nz(not isEntryShort[1], false) and isEntryShort
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 📈 STRATEGY EXECUTION
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Calculate stop loss and take profit levels
+longSL = useFixedRisk ? close * (1 - fixedSLPercent / 100) : close - (atr * atrMultiplierSL * assetATRMult)
+longTP = useFixedRisk ? close * (1 + fixedTPPercent / 100) : close + (atr * atrMultiplierTP * assetATRMult)
+shortSL = useFixedRisk ? close * (1 + fixedSLPercent / 100) : close + (atr * atrMultiplierSL * assetATRMult)
+shortTP = useFixedRisk ? close * (1 - fixedTPPercent / 100) : close - (atr * atrMultiplierTP * assetATRMult)
+
+// LONG ENTRIES
+if isEntryLongFinal and useLongTrades
+    strategy.entry("Long", strategy.long)
+
+    if useATRStops or useFixedRisk
+        if useTrailingStop
+            strategy.exit("Exit Long", "Long", stop=longSL, limit=longTP, trail_price=close, trail_offset=close * trailingStopPercent / 100 / syminfo.mintick)
+        else
+            strategy.exit("Exit Long", "Long", stop=longSL, limit=longTP)
+    else if useTrailingStop
+        strategy.exit("Exit Long", "Long", trail_price=close, trail_offset=close * trailingStopPercent / 100 / syminfo.mintick)
+
+// SHORT ENTRIES
+if isEntryShortFinal and useShortTrades
+    strategy.entry("Short", strategy.short)
+
+    if useATRStops or useFixedRisk
+        if useTrailingStop
+            strategy.exit("Exit Short", "Short", stop=shortSL, limit=shortTP, trail_price=close, trail_offset=close * trailingStopPercent / 100 / syminfo.mintick)
+        else
+            strategy.exit("Exit Short", "Short", stop=shortSL, limit=shortTP)
+    else if useTrailingStop
+        strategy.exit("Exit Short", "Short", trail_price=close, trail_offset=close * trailingStopPercent / 100 / syminfo.mintick)
+
+// EXIT ON OPPOSITE SIGNAL
+if useOppositeSignalExit
+    if isEntryShortFinal
+        strategy.close("Long", comment="Opposite Signal")
+    if isEntryLongFinal
+        strategy.close("Short", comment="Opposite Signal")
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 🎨 VISUALIZATION
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Plot entry signals
+plotshape(isEntryLongFinal, title="Long Signal", style=shape.arrowup,
+     location=location.belowbar, color=color.new(color.green, 0), size=size.normal)
+plotshape(isEntryShortFinal, title="Short Signal", style=shape.arrowdown,
+     location=location.abovebar, color=color.new(color.red, 0), size=size.normal)
+
+// Plot sentiment index as background
+bgColor = sentimentIndex > adjThresholdLong ? color.new(color.green, 90) : sentimentIndex < adjThresholdShort ? color.new(color.red, 90) : color.new(color.gray, 95)
+bgcolor(bgColor, title="Sentiment Background")
+
+// Alerts
+alertcondition(isEntryLongFinal, title="Long Entry Alert", message="Universal Strategy: Go Long on {{ticker}}")
+alertcondition(isEntryShortFinal, title="Short Entry Alert", message="Universal Strategy: Go Short on {{ticker}}")
+
+// Display info box
+var infoTable = table.new(position.top_right, 2, 6, border_width=1)
+if barstate.islast
+    table.cell(infoTable, 0, 0, "Asset Class", text_color=color.white, bgcolor=color.new(color.blue, 30))
+    table.cell(infoTable, 1, 0, detectedAssetClass, text_color=color.white, bgcolor=color.new(color.blue, 50))
+
+    table.cell(infoTable, 0, 1, "Sentiment", text_color=color.white, bgcolor=color.new(color.gray, 30))
+    sentimentBgColor = sentimentIndex > adjThresholdLong ? color.new(color.green, 50) : sentimentIndex < adjThresholdShort ? color.new(color.red, 50) : color.new(color.gray, 50)
+    table.cell(infoTable, 1, 1, str.tostring(math.round(sentimentIndex, 1)), text_color=color.white, bgcolor=sentimentBgColor)
+
+    table.cell(infoTable, 0, 2, "ADX", text_color=color.white, bgcolor=color.new(color.gray, 30))
+    adxBgColor = isTrending ? color.new(color.orange, 50) : color.new(color.gray, 50)
+    table.cell(infoTable, 1, 2, str.tostring(math.round(adxValue, 1)), text_color=color.white, bgcolor=adxBgColor)
+
+    table.cell(infoTable, 0, 3, "RSI", text_color=color.white, bgcolor=color.new(color.gray, 30))
+    table.cell(infoTable, 1, 3, str.tostring(math.round(rsi, 1)), text_color=color.white, bgcolor=color.new(color.gray, 50))
+
+    table.cell(infoTable, 0, 4, "Threshold L/S", text_color=color.white, bgcolor=color.new(color.gray, 30))
+    thresholdText = str.tostring(math.round(adjThresholdLong, 0)) + " / " + str.tostring(math.round(adjThresholdShort, 0))
+    table.cell(infoTable, 1, 4, thresholdText, text_color=color.white, bgcolor=color.new(color.gray, 50))
+
+    table.cell(infoTable, 0, 5, "ATR", text_color=color.white, bgcolor=color.new(color.gray, 30))
+    table.cell(infoTable, 1, 5, str.tostring(math.round(atr, 2)), text_color=color.white, bgcolor=color.new(color.gray, 50))
