@@ -1,0 +1,84 @@
+# Polybot Configuration
+# Copy to config.yaml and customize for your setup
+
+polling:
+  interval_seconds: 5.0
+  markets_endpoint: "https://clob.polymarket.com"
+  timeout_seconds: 10.0
+  max_retries: 3
+
+market_filter:
+  tags: ["politics", "crypto"]
+  min_volume_24h: 1000.0
+  min_liquidity: 500.0
+  market_ids: []
+
+rules:
+  - name: "cheap_yes_buy"
+    conditions:
+      - field: "yes_price"
+        operator: "lt"
+        value: 0.15
+      - field: "volume_24h"
+        operator: "gt"
+        value: 5000
+    action: "buy_yes"
+    size_usdc: 25.0
+    max_price: 0.20
+    cooldown_seconds: 3600
+
+  - name: "expensive_yes_sell"
+    conditions:
+      - field: "yes_price"
+        operator: "gt"
+        value: 0.90
+      - field: "liquidity"
+        operator: "gt"
+        value: 1000
+    action: "sell_yes"
+    size_usdc: 20.0
+    min_price: 0.85
+    cooldown_seconds: 1800
+
+  - name: "midrange_value"
+    market_id: "specific-market-uuid-here"
+    conditions:
+      - field: "yes_price"
+        operator: "between"
+        value: [0.30, 0.50]
+      - field: "volume_24h"
+        operator: "gt"
+        value: 10000
+    action: "buy_yes"
+    size_usdc: 50.0
+    cooldown_seconds: 7200
+
+risk:
+  max_position_size_usdc: 100.0
+  max_total_exposure_usdc: 500.0
+  max_positions: 10
+  max_loss_per_market_usdc: 50.0
+  daily_loss_limit_usdc: 100.0
+
+execution:
+  mode: "paper"
+  initial_balance_usdc: 1000.0
+  taker_fee_bps: 0.0
+  polygon_rpc_url: "https://polygon-rpc.com"
+  chain_id: 137
+
+telegram:
+  enabled: false
+  bot_token: ""       # Set via POLYBOT_TELEGRAM__BOT_TOKEN
+  chat_id: ""         # Set via POLYBOT_TELEGRAM__CHAT_ID
+  notify_on:
+    - "signal"
+    - "order_placed"
+    - "order_filled"
+    - "error"
+    - "risk_breach"
+
+telemetry:
+  prometheus_port: 9090
+  log_level: "INFO"
+  audit_db_url: "sqlite:///audit.db"

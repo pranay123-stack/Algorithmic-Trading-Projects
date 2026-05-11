@@ -1,0 +1,14 @@
+aiohttp>=3.9.0
+pydantic>=2.0
+pyyaml>=6.0
+prometheus-client>=0.20.0
+structlog>=24.0.0
+aiosqlite>=0.20.0
+web3>=6.0.0
+eth-account>=0.10.0
+
+# Dev dependencies
+pytest>=8.0
+pytest-asyncio>=0.23
+pytest-cov>=4.0
+ruff>=0.3.0

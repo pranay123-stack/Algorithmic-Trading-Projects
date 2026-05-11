@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "polybot"
+version = "0.1.0"
+description = "Automated prediction market trading engine for Polymarket"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "pranay-hft" },
+]
+
+dependencies = [
+    "aiohttp>=3.9.0",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "prometheus-client>=0.20.0",
+    "structlog>=24.0.0",
+    "aiosqlite>=0.20.0",
+    "web3>=6.0.0",
+    "eth-account>=0.10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=4.0",
+    "ruff>=0.3.0",
+    "mypy>=1.8",
+    "aioresponses>=0.7.0",
+]
+
+[project.scripts]
+polybot = "polybot.main:cli"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

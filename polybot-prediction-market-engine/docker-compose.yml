@@ -1,0 +1,32 @@
+services:
+  polybot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["--mode", "paper", "--config", "/app/config/config.yaml"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config:/app/config:ro
+    environment:
+      - POLYBOT_PRIVATE_KEY=${POLYBOT_PRIVATE_KEY:-}
+      - POLYBOT_TELEGRAM__BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - POLYBOT_TELEGRAM__CHAT_ID=${TELEGRAM_CHAT_ID:-}
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
