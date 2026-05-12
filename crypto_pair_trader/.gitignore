@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+data/trades.db
+data/cache/
+logs/*.log
+config/settings.local.yaml
+.env
+*.egg-info/

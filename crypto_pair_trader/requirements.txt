@@ -1,0 +1,22 @@
+# Core
+ccxt>=4.0.0
+pandas>=2.0.0
+numpy>=1.24.0
+PyYAML>=6.0
+
+# Statistics
+statsmodels>=0.14.0
+scipy>=1.11.0
+
+# WebSocket
+websockets>=12.0
+
+# Dashboard
+streamlit>=1.30.0
+plotly>=5.18.0
+
+# Database (optional PostgreSQL)
+# psycopg2-binary>=2.9.0
+
+# Logging
+# (stdlib — no extra dependency)

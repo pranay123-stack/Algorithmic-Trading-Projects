@@ -1,0 +1,110 @@
+# ============================================================
+# Crypto Pair Trading System — Master Configuration
+# ============================================================
+
+mode: "paper"  # "paper" or "live"
+
+exchange:
+  name: "binance"          # binance | bybit | okx
+  testnet: true
+  api_key: ""
+  api_secret: ""
+  passphrase: ""           # OKX only
+  rate_limit: true
+  timeout: 30000
+
+data:
+  timeframe: "5m"          # 1m | 3m | 5m | 15m
+  history_days: 7          # rolling lookback for pair selection
+  candle_limit: 1000
+  cache_dir: "data/cache"
+  use_websocket: true
+
+pair_selection:
+  universe:
+    - "BTC/USDT"
+    - "ETH/USDT"
+    - "SOL/USDT"
+    - "BNB/USDT"
+    - "XRP/USDT"
+    - "ADA/USDT"
+    - "AVAX/USDT"
+    - "DOGE/USDT"
+    - "LINK/USDT"
+    - "MATIC/USDT"
+    - "DOT/USDT"
+    - "UNI/USDT"
+    - "ATOM/USDT"
+    - "LTC/USDT"
+    - "ARB/USDT"
+    - "OP/USDT"
+    - "APT/USDT"
+    - "NEAR/USDT"
+    - "FIL/USDT"
+    - "INJ/USDT"
+  min_correlation: 0.75
+  max_correlation: 0.995   # avoid near-identical pairs
+  cointegration_pvalue: 0.05
+  adf_pvalue: 0.05
+  min_half_life: 5         # candles
+  max_half_life: 200       # candles
+  hedge_ratio_window: 120  # rolling OLS window
+  min_daily_volume_usd: 5000000
+  min_avg_spread_ticks: 0  # liquidity floor
+  rescore_interval_minutes: 60
+  max_pairs: 5
+
+strategy:
+  zscore_entry: 2.0
+  zscore_exit: 0.5
+  zscore_stop: 4.0
+  lookback: 60             # rolling window for mean/std
+  min_half_life: 5
+  max_holding_minutes: 240 # 4h hard cut
+  spread_widening_mult: 2.0
+  vol_filter_window: 30
+  vol_filter_max_ratio: 3.0
+  trend_filter_window: 60
+  trend_filter_adx_thresh: 35
+
+risk:
+  max_position_usd: 10000
+  max_pair_exposure_pct: 0.20    # per pair as fraction of capital
+  max_portfolio_exposure_pct: 0.6
+  max_daily_loss_usd: 500
+  max_daily_loss_pct: 0.05
+  max_open_pairs: 3
+  dollar_neutral_tolerance: 0.05 # 5% imbalance ok
+  session_end_utc: "23:45"       # auto square-off time
+  capital: 50000
+
+execution:
+  order_type: "limit"       # limit | market
+  limit_chase_ticks: 2
+  max_retries: 3
+  retry_delay_s: 1.0
+  partial_fill_timeout_s: 10
+  slippage_bps: 5           # paper sim slippage
+
+backtest:
+  start_date: "2024-06-01"
+  end_date: "2024-08-01"
+  initial_capital: 50000
+  commission_bps: 4         # round trip
+  slippage_bps: 3
+
+dashboard:
+  host: "0.0.0.0"
+  port: 8501
+  refresh_seconds: 5
+
+database:
+  engine: "sqlite"          # sqlite | postgresql
+  sqlite_path: "data/trades.db"
+  pg_dsn: "postgresql://user:pass@localhost:5432/pairtrader"
+
+logging:
+  level: "INFO"
+  file: "logs/pair_trader.log"
+  max_bytes: 10485760
+  backup_count: 5
